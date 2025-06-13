@@ -1,7 +1,9 @@
+mod models;
+mod utils;
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, post, web};
 
 use models::TokenResponse;
-mod models;
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
