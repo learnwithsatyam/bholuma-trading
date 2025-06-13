@@ -1,7 +1,8 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
+use serde_json;
 
-mod TokenResponse;
+use crate::models::TokenResponse::TokenResponse;
 
 pub fn save_to_file(data: &TokenResponse, filename: &str) -> std::io::Result<()> {
     let json = serde_json::to_string_pretty(data)?; // pretty or just `to_string`
@@ -12,6 +13,6 @@ pub fn save_to_file(data: &TokenResponse, filename: &str) -> std::io::Result<()>
 
 pub fn read_from_file(filename: &str) -> std::io::Result<TokenResponse> {
     let json = fs::read_to_string(filename)?;
-    let user: User = serde_json::from_str(&json)?;
-    Ok(user)
+    let tokenData: TokenResponse = serde_json::from_str(&json)?;
+    Ok(tokenData)
 }
