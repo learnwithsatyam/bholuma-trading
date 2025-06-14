@@ -1,5 +1,6 @@
 use std::fs::{self, File};
 use std::io::Write;
+use actix_web::http::Error;
 use serde_json;
 use time::{OffsetDateTime, Duration};
 use crate::models::AccessToken::AccessToken;
@@ -20,4 +21,16 @@ pub fn read_from_file(filename: &str) -> std::io::Result<AccessToken> {
 pub fn get_access_token_validity() -> OffsetDateTime{
     // access token is valid only for 24 hours
     OffsetDateTime::now_utc() + Duration::hours(24) 
+}
+
+pub fn get_fresh_access_token(filename: &str) -> AccessToken{
+    let token = read_from_file(filename);
+    match token{
+        Ok(token) => {
+            token
+        }
+        Err(err) => {
+            panic!("No refresh access token. Not even empty or invalid")
+        }
+    }
 }
