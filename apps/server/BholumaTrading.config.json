@@ -1,0 +1,39 @@
+{
+  "data": {
+    "access_token": "v2kFat54Wj0c7pDWgmpFipfGoDdWcCww",
+    "api_key": "eaewivs71034bsab",
+    "avatar_url": null,
+    "broker": "ZERODHA",
+    "email": "nirbhaycoder@gmail.com",
+    "enctoken": "YJ5NA6B7Gpee1boFz+i8daze7ICsp3cHg753N+7rP5xw0oAX6MdEtI27QRDXVZTO4IYiQhVo4NUZiPiT7X4V32N+g8OS06u+IVGG2P3McaMNfabL43fDIEB23utdiGA=",
+    "exchanges": [
+      "MF",
+      "NSE",
+      "BSE"
+    ],
+    "login_time": "2025-06-14 13:45:42",
+    "meta": {
+      "demat_consent": "consent"
+    },
+    "order_types": [
+      "MARKET",
+      "LIMIT",
+      "SL",
+      "SL-M"
+    ],
+    "products": [
+      "CNC",
+      "NRML",
+      "MIS",
+      "BO",
+      "CO"
+    ],
+    "public_token": "CsbT7Gr56yqYJl5TEd3m4j51bcoaHK58",
+    "refresh_token": "",
+    "user_id": "RYW224",
+    "user_name": "Satyam Shivhare",
+    "user_shortname": "Satyam",
+    "user_type": "individual/ind_with_nom"
+  },
+  "status": "success"
+}
