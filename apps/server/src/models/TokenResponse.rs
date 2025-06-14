@@ -2,10 +2,9 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TokenResponse {
-    status: String,
-    request_token: String,
-    action: String,
+    pub status: String,
+    pub request_token: String,
+    pub action: String,
     #[serde(rename = "type")]
-    type_: String
+    pub type_: String,
 }
-
