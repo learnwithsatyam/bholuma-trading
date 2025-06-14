@@ -12,6 +12,7 @@ use zerodhaAuth::kiteconnect::get_kite_connect;
 use std::{env::var, thread};
 use kiteconnect::ticker::{KiteTicker, KiteTickerHandler, WebSocketHandler};
 use zerodhaAuth::{*};
+use dotenv::dotenv;
 
 #[get("/zerodha/callback")]
 async fn set_zerodha_access_token(data: web::Query<TokenResponse>) -> impl Responder {
@@ -58,6 +59,7 @@ fn start_ticker(api_key: String, access_token: String) {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 
+    dotenv().ok();
     let api_key = std::env::var("ZERODHA_API_KEY").unwrap_or_else(|error| panic!("ZERODHA API KEY NOT FOUND!!"));
 
     // ✅ Spawn the ticker in its own thread
