@@ -23,14 +23,7 @@ pub fn get_access_token_validity() -> OffsetDateTime{
     OffsetDateTime::now_utc() + Duration::hours(24) 
 }
 
-pub fn get_fresh_access_token(filename: &str) -> AccessToken{
+pub fn get_fresh_access_token(filename: &str) ->  Result<AccessToken, std::io::Error> {
     let token = read_from_file(filename);
-    match token{
-        Ok(token) => {
-            token
-        }
-        Err(err) => {
-            panic!("No refresh access token. Not even empty or invalid")
-        }
-    }
+    return token;
 }
