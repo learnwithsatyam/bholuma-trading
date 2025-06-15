@@ -143,6 +143,11 @@ async fn main() -> std::io::Result<()> {
             };
 
             // Run async code in a synchronous context using actix_web::rt::System
+
+            if(utils::commonUtilities::is_market_open_in_india() == false){
+                continue;
+            }
+
             let access_token_clone = access_token.data.access_token.clone();
             actix_web::rt::System::new().block_on(async {
                 match fetch_100_candles(&access_token_clone, "633601").await {
