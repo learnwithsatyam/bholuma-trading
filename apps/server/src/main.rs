@@ -4,20 +4,21 @@ mod zerodhaAuth;
 extern crate kiteconnect;
 
 use actix_web::{
-    App, HttpResponse, HttpServer, Responder, get, post,
+    App, HttpResponse, HttpServer, Responder, body, get, post,
     web::{self, get},
 };
 use dotenv::dotenv;
 use kiteconnect::ticker::{KiteTicker, KiteTickerHandler, WebSocketHandler};
 use models::AccessToken::AccessToken;
 use models::TokenResponse::TokenResponse;
+use reqwest::Body;
 use serde_json::value;
 use std::{env::var, f64::consts::E, thread};
 use utils::commonUtilities::{get_access_token_validity, get_fresh_access_token, save_to_file};
+use zerodhaAuth::getHistoricalCandleData::fetch_100_candles;
 use zerodhaAuth::kiteconnect::get_kite_connect;
-use zerodhaAuth::*;
 
-use crate::models::AccessToken::TokenData;
+use crate::{models::AccessToken::TokenData, zerodhaAuth::kiteTicker};
 
 #[get("/zerodha/callback")]
 async fn set_zerodha_access_token(data: web::Query<TokenResponse>) -> impl Responder {
@@ -55,6 +56,24 @@ async fn set_zerodha_access_token(data: web::Query<TokenResponse>) -> impl Respo
         Err(_) => {
             HttpResponse::InternalServerError().body(format!("Could not generate access token"))
         }
+    }
+}
+
+#[get("/candle-data")]
+async fn get_candle_data() -> impl Responder {
+    let access_token_result =
+        get_fresh_access_token(var("ACCESS_TOKEN_CONFIG_FILE").unwrap().as_str());
+    match access_token_result {
+        Ok(token) => {
+            let candle_data = fetch_100_candles(&token.data.access_token, &"5633").await;
+            match candle_data {
+                Ok(value) => {
+                    HttpResponse::Ok().json(value)
+                }
+                Err(_) => HttpResponse::InternalServerError().body("could not fetch candles"),
+            }
+        }
+        Err(_) => HttpResponse::InternalServerError().body("could not get access token"),
     }
 }
 
