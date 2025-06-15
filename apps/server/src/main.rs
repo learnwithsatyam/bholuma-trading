@@ -108,7 +108,7 @@ async fn main() -> std::io::Result<()> {
             );
             match access_token {
                 Ok(token) => {
-                    if (token.data.access_token == "" || connected) {
+                    if token.data.access_token == "" || connected || !utils::commonUtilities::is_market_open_in_india() {
                         continue;
                     }
                     let mut ticker = KiteTicker::new(&api_key, &token.data.access_token);
