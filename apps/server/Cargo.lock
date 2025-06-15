@@ -2294,6 +2294,7 @@ dependencies = [
  "serde",
  "serde_json",
  "time 0.3.41",
+ "tokio 1.45.1",
 ]
 
 [[package]]
