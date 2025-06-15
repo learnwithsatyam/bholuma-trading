@@ -1,6 +1,7 @@
 mod models;
 mod utils;
 mod zerodhaAuth;
+mod ChatGPT;
 extern crate kiteconnect;
 
 use actix_web::{
@@ -18,7 +19,7 @@ use utils::commonUtilities::{get_access_token_validity, get_fresh_access_token, 
 use zerodhaAuth::getHistoricalCandleData::fetch_100_candles;
 use zerodhaAuth::kiteconnect::get_kite_connect;
 
-use crate::{models::AccessToken::TokenData, zerodhaAuth::kiteTicker};
+use crate::{models::AccessToken::TokenData, zerodhaAuth::{kiteTicker, placeOrder}};
 
 #[get("/zerodha/callback")]
 async fn set_zerodha_access_token(data: web::Query<TokenResponse>) -> impl Responder {
@@ -96,6 +97,7 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
     let api_key = std::env::var("ZERODHA_API_KEY")
         .unwrap_or_else(|error| panic!("ZERODHA API KEY NOT FOUND!!"));
+    let api_key_clone = api_key.clone();
 
     // ✅ Spawn the ticker in its own thread
     thread::spawn(move || {
@@ -124,6 +126,67 @@ async fn main() -> std::io::Result<()> {
             //start_ticker(api_key.clone(), access_token.access_token);
             //println!("[ticker] Disconnected, retrying in 2s...");
             std::thread::sleep(std::time::Duration::from_secs(2));
+        }
+    });
+    thread::spawn(move || {
+        loop {
+            let access_token = get_fresh_access_token(
+                var("ACCESS_TOKEN_CONFIG_FILE").unwrap_or_default().as_str(),
+            );
+            let access_token = match access_token {
+                Ok(token) => token,
+                Err(e) => {
+                    eprintln!("[ticker] Error fetching access token: {:?}", e);
+                    std::thread::sleep(std::time::Duration::from_secs(10));
+                    continue;
+                }
+            };
+
+            // Run async code in a synchronous context using actix_web::rt::System
+            let access_token_clone = access_token.data.access_token.clone();
+            actix_web::rt::System::new().block_on(async {
+                match fetch_100_candles(&access_token_clone, "633601").await {
+                    Ok(candleData) => {
+                        // Flatten Vec<[Value; 6]> to Vec<Value>
+                        let flat_candle_data: Vec<serde_json::Value> = candleData.into_iter().flat_map(|arr| arr.into_iter()).collect();
+
+                        match ChatGPT::makeDecisionToTrade::makeDecisionToTrade(flat_candle_data).await {
+                            Ok(tradeDecision) => {
+                                if tradeDecision.decision.to_lowercase() == "buy" {
+                                    // place buy order logic here
+                                    if let Err(e) = placeOrder::place_order(
+                                        &api_key_clone,
+                                        &access_token_clone,
+                                        "buy",
+                                        1
+                                    ).await {
+                                        eprintln!("[Order] Buy order failed: {:?}", e);
+                                    }
+                                } else if tradeDecision.decision.to_lowercase() == "sell" {
+                                    if let Err(e) = placeOrder::place_order(
+                                        &api_key_clone,
+                                        &access_token_clone,
+                                        "sell",
+                                        1
+                                    ).await {
+                                        eprintln!("[Order] Sell order failed: {:?}", e);
+                                    }
+                                } else {
+                                    println!("[Decision] Hold: {}", tradeDecision.reason);
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("[Decision] Error making trade decision: {:?}", e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[Candle] Error fetching candle data: {:?}", e);
+                    }
+                }
+            });
+
+            std::thread::sleep(std::time::Duration::from_secs(180));
         }
     });
 
