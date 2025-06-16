@@ -1,7 +1,7 @@
+mod ChatGPT;
 mod models;
 mod utils;
 mod zerodhaAuth;
-mod ChatGPT;
 extern crate kiteconnect;
 
 use actix_web::{
@@ -14,12 +14,25 @@ use models::AccessToken::AccessToken;
 use models::TokenResponse::TokenResponse;
 use reqwest::Body;
 use serde_json::value;
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use std::{env::var, f64::consts::E, thread};
 use utils::commonUtilities::{get_access_token_validity, get_fresh_access_token, save_to_file};
 use zerodhaAuth::getHistoricalCandleData::fetch_100_candles;
 use zerodhaAuth::kiteconnect::get_kite_connect;
 
-use crate::{models::AccessToken::TokenData, zerodhaAuth::{kiteTicker, placeOrder}};
+use crate::{
+    models::AccessToken::TokenData,
+    zerodhaAuth::{kiteTicker, placeOrder},
+};
+use mongodb::{Client, Collection, bson::doc, options::ClientOptions};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct AIResponse {
+    decision: String,
+    reason: String,
+    datetime: String,
+}
 
 #[get("/zerodha/callback")]
 async fn set_zerodha_access_token(data: web::Query<TokenResponse>) -> impl Responder {
@@ -68,9 +81,7 @@ async fn get_candle_data() -> impl Responder {
         Ok(token) => {
             let candle_data = fetch_100_candles(&token.data.access_token, &"5633").await;
             match candle_data {
-                Ok(value) => {
-                    HttpResponse::Ok().json(value)
-                }
+                Ok(value) => HttpResponse::Ok().json(value),
                 Err(_) => HttpResponse::InternalServerError().body("could not fetch candles"),
             }
         }
@@ -108,7 +119,10 @@ async fn main() -> std::io::Result<()> {
             );
             match access_token {
                 Ok(token) => {
-                    if token.data.access_token == "" || connected || !utils::commonUtilities::is_market_open_in_india() {
+                    if token.data.access_token == ""
+                        || connected
+                        || !utils::commonUtilities::is_market_open_in_india()
+                    {
                         continue;
                     }
                     let mut ticker = KiteTicker::new(&api_key, &token.data.access_token);
@@ -144,18 +158,29 @@ async fn main() -> std::io::Result<()> {
 
             // Run async code in a synchronous context using actix_web::rt::System
 
-            if(utils::commonUtilities::is_market_open_in_india() == false){
+            if (utils::commonUtilities::is_market_open_in_india() == false) {
                 continue;
             }
 
             let access_token_clone = access_token.data.access_token.clone();
             actix_web::rt::System::new().block_on(async {
+                let client_uri = "mongodb://localhost:27017";
+                let options = ClientOptions::parse(client_uri).await.unwrap();
+                let client = Client::with_options(options).unwrap();
+
+                let db = client.database("bholumaTrading");
+                let collection: Collection<AIResponse> = db.collection("airesponses");
                 match fetch_100_candles(&access_token_clone, "633601").await {
                     Ok(candleData) => {
                         // Flatten Vec<[Value; 6]> to Vec<Value>
-                        let flat_candle_data: Vec<serde_json::Value> = candleData.into_iter().flat_map(|arr| arr.into_iter()).collect();
+                        let flat_candle_data: Vec<serde_json::Value> = candleData
+                            .into_iter()
+                            .flat_map(|arr| arr.into_iter())
+                            .collect();
 
-                        match ChatGPT::makeDecisionToTrade::makeDecisionToTrade(flat_candle_data).await {
+                        match ChatGPT::makeDecisionToTrade::makeDecisionToTrade(flat_candle_data)
+                            .await
+                        {
                             Ok(tradeDecision) => {
                                 if tradeDecision.decision.to_lowercase() == "buy" {
                                     // place buy order logic here
@@ -163,21 +188,55 @@ async fn main() -> std::io::Result<()> {
                                         &api_key_clone,
                                         &access_token_clone,
                                         "buy",
-                                        1
-                                    ).await {
+                                        1,
+                                    )
+                                    .await
+                                    {
                                         eprintln!("[Order] Buy order failed: {:?}", e);
                                     }
+                                    let now = OffsetDateTime::now_utc();
+                                    let rfc3339_time = now.format(&Rfc3339).unwrap();
+                                    let airesponse = AIResponse {
+                                        decision: "buy".to_string(),
+                                        reason: tradeDecision.reason.clone(),
+                                        datetime: rfc3339_time,
+                                    };
+
+                                    collection.insert_one(airesponse, None).await.unwrap();
+                                    println!("[Decision] Buy order placed: {}", tradeDecision.reason);
                                 } else if tradeDecision.decision.to_lowercase() == "sell" {
                                     if let Err(e) = placeOrder::place_order(
                                         &api_key_clone,
                                         &access_token_clone,
                                         "sell",
-                                        1
-                                    ).await {
+                                        1,
+                                    )
+                                    .await
+                                    {
                                         eprintln!("[Order] Sell order failed: {:?}", e);
                                     }
+                                    let now = OffsetDateTime::now_utc();
+                                    let rfc3339_time = now.format(&Rfc3339).unwrap();
+                                    let airesponse = AIResponse {
+                                        decision: "sell".to_string(),
+                                        reason: tradeDecision.reason.clone(),
+                                        datetime: rfc3339_time,
+                                    };
+
+                                    collection.insert_one(airesponse, None).await.unwrap();
+                                    println!("[Decision] Sell order placed: {}", tradeDecision.reason);
                                 } else {
                                     println!("[Decision] Hold: {}", tradeDecision.reason);
+                                    let now = OffsetDateTime::now_utc();
+                                    let rfc3339_time = now.format(&Rfc3339).unwrap();
+                                    let airesponse = AIResponse {
+                                        decision: "hold".to_string(),
+                                        reason: tradeDecision.reason.clone(),
+                                        datetime: rfc3339_time,
+                                    };
+
+                                    collection.insert_one(airesponse, None).await.unwrap();
+                                    println!("[Decision] Buy order placed: {}", tradeDecision.reason);
                                 }
                             }
                             Err(e) => {
