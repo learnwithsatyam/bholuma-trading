@@ -43,10 +43,10 @@ pub fn is_market_open_in_india() -> bool {
     }
 
     // Convert time to minutes since midnight
-    let total_minutes = hour * 60 + minute;
+    let total_minutes: u128 = (hour as u128) * 60 + (minute as u128);
 
-    let market_open = 9 * 60 + 15;   // 9:15 AM
-    let market_close = 15 * 60 + 30; // 3:30 PM
+    let market_open: u128 = 9 * 60 + 15;   // 9:15 AM
+    let market_close: u128 = 15 * 60 + 30; // 3:30 PM
 
     total_minutes >= market_open && total_minutes <= market_close
 }
